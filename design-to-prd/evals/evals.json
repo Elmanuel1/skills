@@ -1,0 +1,26 @@
+{
+  "skill_name": "design-to-prd",
+  "evals": [
+    {
+      "id": 1,
+      "name": "calendar-sync-md",
+      "prompt": "Hey can you take this design doc Priya wrote up for the Calendar Sync v2 work and turn it into a high-level PRD for me? It needs to land with both our exec sponsor and the eng team. We don't have a Confluence connector hooked up yet — just save it as markdown for now and I'll paste it in. The file is at evals/files/calendar-sync-design.md.",
+      "expected_output": "A high-level PRD as a markdown file in the run's outputs directory, structured with TL;DR, Context & Problem, Goals/Non-Goals, Target Users, Solution Overview, Key Flows, Functional Requirements, Success Metrics, Dependencies & Risks, Out of Scope, and Open Questions. The PRD should reference the design doc rather than re-describe it, surface the two unresolved items the designer flagged (ticket reduction target, paid-plan gating) as open questions, and not invent metrics that aren't supported by the design.",
+      "files": ["evals/files/calendar-sync-design.md"]
+    },
+    {
+      "id": 2,
+      "name": "expense-reports-pdf",
+      "prompt": "I have a PDF design spec for our Expense Reports v3 redesign at evals/files/expense-reports-design.pdf. Can you write me a high-level PRD from it? Audience is leadership and engineering. Save the PRD as a markdown file — we'll publish it to Confluence later, no need to do that now.",
+      "expected_output": "A high-level PRD as a markdown file in the run's outputs directory, with all 11 standard sections in order. The PRD should: (a) extract the three user types (submitter / approver / admin) from the PDF, (b) include the specific numbers from the research (14 min average, 47% missed violations, 12% stuck reports), (c) name the specific risks the designer called out, (d) list dependencies (ML model, policy engine, permissions), and (e) carry forward the explicit out-of-scope items.",
+      "files": ["evals/files/expense-reports-design.pdf"]
+    },
+    {
+      "id": 3,
+      "name": "sparse-design",
+      "prompt": "Can you make a quick PRD from this? evals/files/sparse-design-notes.md — putting a search bar at the top of the home screen. For exec + eng audience. Markdown is fine.",
+      "expected_output": "A PRD that uses the standard structure but does NOT invent context, metrics, or business framing the design doesn't support. Sections that the design doesn't address (success metrics, target users, problem evidence) should be marked as TBD with a note about who needs to fill them in. The Open Questions section should be substantial. The skill should also surface to the user that the input is too thin and ask whether they want to provide more context before publishing — but still produce the best PRD it can with the information given.",
+      "files": ["evals/files/sparse-design-notes.md"]
+    }
+  ]
+}
