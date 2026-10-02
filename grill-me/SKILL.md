@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: Builds a design by walking the user down a decision tree one question at a time, validating every assumption along the way (external dependencies AND design choices AND NFR targets AND failure-mode assumptions) until every branch resolves to evidence (citation, probe, or explicit accepted-risk). Output is `decisions.md` — the design itself, captured as a structured decision tree with a parallel Dependency Ledger that records every assumption and its evidence. Use when starting a new feature design, validating a plan before implementation, or any time you say "grill me". This is the design-capture step in the pipeline: verbal idea → grill-me → decisions.md → design-to-prd → PRD → prd-to-features → engineering tickets.
+description: Builds a design by walking the user down a decision tree one question at a time, validating every assumption along the way (external dependencies AND design choices AND NFR targets AND failure-mode assumptions) until every branch resolves to evidence (citation, probe, or explicit accepted-risk). Outputs are `decisions.md` (the design as a resolved decision tree) and `dependencies.md` (the assumption-and-evidence ledger), and from them grill-me produces the change's **ADR** — its Decision, the Alternatives considered, and the accepted-risk Consequences. Use when starting a new feature design, validating a plan before implementation, or any time you say "grill me". This is the design-capture step in Spec-Driven Development: idea → grill-me (decisions.md + dependencies.md + the ADR) → Spec + Plan by initiative (see the `sdd` skill).
 allowed-tools:
   - Read
   - Glob
@@ -12,6 +12,8 @@ allowed-tools:
 ---
 
 # Grill Me
+
+> **SDD stage 1 — design capture, and it provides the ADR** (see the `sdd` skill for the full map). grill-me produces the ADR directly: the resolved decision and the alternatives considered in `decisions.md` are the ADR's Decision and Alternatives, and the accepted-risk rows in `dependencies.md` are its Consequences. `decisions.md` also seeds the Spec (Goal, Requirements, Non-Goals), and `dependencies.md` the Plan's Constraints + Resilience. For a **Lightweight** change these become a Local Spec/Plan/ADR in the service repo under `.specs/<initiative>/`; for **Cross-Service**, the Global artifacts under `tosspaper-specs/changes/<initiative>/`.
 
 Interview the user relentlessly about every aspect of their plan or design until
 we reach a shared understanding. Walk down each branch of the design tree,
@@ -82,27 +84,53 @@ each cell is resolved.
    pick the most important unresolved branch and ask about that. Wait for the
    answer before moving on.
 
-3. **Every `AskUserQuestion` call must include options AND a recommendation.**
-   Structure every call exactly like this:
+3. **Every `AskUserQuestion` call must use structured fields — never stuff everything into the `question` string.**
+   Map the content to the tool's fields like this:
 
+   - **`question`** — the question only. One sentence, clear and unambiguous, nothing else. No
+     branch name, no ledger state, no preamble, those go in the chat message you send immediately
+     before the tool call, never inside the `question` string itself.
+   - **`header`** — ≤12 chars, the branch name abbreviated (e.g. `"Auth method"`, `"Storage"`, `"Rollout"`)
+   - **`options`** — array of objects. Each option gets:
+     - `label`: short name for the choice (3–5 words, e.g. `"Directory bundle"`)
+     - `description`: one sentence explaining what this choice means, including the recommendation signal. Mark the recommended option: `"(Recommended) <reason>"`
+
+   State the branch and ledger shorthand as plain text in your message, right before the tool
+   call, e.g. `Branch: Upload strategy | Ledger: 0 verified, 0 risk, 2 assumed`. Then call the tool:
+
+   Example:
    ```
-   AskUserQuestion(question="""
-   [Branch: <branch name>]
-
-   <The question — one sentence, clear>
-
-   Options:
-     A) <option one>
-     B) <option two>
-     C) <option three if applicable>
-     D) Other (describe)
-
-   My recommendation: <letter> — <concrete reason, 1–2 sentences>
-   """)
+   AskUserQuestion(questions=[{
+     question: "How should skill source files be packaged for upload?",
+     header: "Upload",
+     multiSelect: false,
+     options: [
+       { label: "Single file", description: "Point to one markdown file. Simple but limits structure." },
+       { label: "Directory bundle", description: "(Recommended) Upload a whole directory. Matches how the Python SDK works and supports multi-file skills." },
+       { label: "Zip archive", description: "Pre-zip locally and upload. More control but more friction." }
+     ]
+   }])
    ```
 
-   Never present a question without options. Never present options without a
-   recommendation. The user must be able to reply with just a letter.
+   Never put option text inside the `question` string. Never skip `description` on an option.
+   Always mark one option as `(Recommended)` with a concrete reason.
+   The user must be able to pick without reading anything beyond the question and its options.
+
+   **Give context before every question.** The chat message before the tool call must
+   carry, in this order and in plain words: (1) **Where we are:** the earlier decisions
+   this question builds on, one line each; (2) **What the code or system does today:**
+   the relevant fact with a file path or source; (3) **Why it matters:** what breaks or
+   changes depending on the answer. Never ask a cold question. If the user dismisses
+   a question, the context was probably too thin: add more, do not just re-send it.
+
+   **Ground every question in a real-life example.** Abstract questions get dismissed
+   or misread. In the chat message right before the tool call, state a short concrete
+   scenario with named people, companies and amounts (e.g. "Ann and Bob both work at
+   BuildCo; Acme invites both; Ann accepts. Does Bob's invitation become BuildCo's?"),
+   then ask the question about that scenario. Use everyday nouns from the user's
+   domain, not internal names or jargon. Make each option's `description` say what
+   happens to the people in the example. If the user dismisses or says "ask this
+   clearer", re-ask with a fresh example before anything else.
 
 4. **The Dependency Ledger gates closing.** As soon as the user states the plan,
    open the ledger and enumerate every external surface the design touches —
@@ -367,24 +395,34 @@ or paste the design. Then in this exact order, before any other questions:
    work — usually a foundational design branch OR the first ledger row whose
    resolution would change the rest of the design.
 
-### Per question — ALWAYS use AskUserQuestion
+### Per question — ALWAYS use AskUserQuestion with structured fields
 
-```python
-AskUserQuestion(question="""
-[Branch: <name of branch being explored>]
-[Ledger: <verified> verified, <risk> accepted-risk, <assumed> assumed]
+State the branch and ledger shorthand as a plain-text line in your chat message
+first (e.g. `Branch: <branch name> | Ledger: <N> verified, <N> risk, <N> assumed`),
+then immediately call the tool with just the question itself:
 
-<The question — one sentence, unambiguous>
-
-Options:
-  A) <first option with brief description>
-  B) <second option with brief description>
-  C) <third option if applicable>
-  D) Other (describe)
-
-My recommendation: <letter> — <1–2 sentence rationale grounded in the codebase or known tradeoffs>
-""")
 ```
+AskUserQuestion(questions=[{
+  question: "<The question — one sentence, unambiguous>",
+  header: "<≤12 char branch label>",
+  multiSelect: false,
+  options: [
+    { label: "<short choice name>", description: "<one sentence — what this means and its tradeoff>" },
+    { label: "<short choice name>", description: "(Recommended) <one sentence — why this is the right default>" },
+    { label: "<short choice name>", description: "<one sentence — when you'd pick this instead>" }
+  ]
+}])
+```
+
+Rules:
+- Chat message before the tool call: context (where we are, what exists today, why it matters), then a 1 to 3 sentence real-life example (named people, concrete numbers) that the question is about.
+- `question` field: the question only, nothing else. No branch/ledger prefix inside it, that
+  clutters the question and makes it harder to read at a glance, it belongs in the chat message.
+- `header`: abbreviated branch name, ≤12 chars.
+- `options[].label`: 3–5 words, the choice name only.
+- `options[].description`: one sentence. Mark one option `(Recommended)` with a concrete reason.
+- Never put the options list inside the `question` string.
+- Never omit `description` on any option.
 
 After the user replies, state what is now resolved, the next open branch, and
 the current ledger shorthand. Then fire the next `AskUserQuestion`.
@@ -411,6 +449,26 @@ even if the user signals they want to wrap up. If they push back, ask via
 `AskUserQuestion` whether they want to convert the row to 🟡 ACCEPTED-RISK
 (with explicit words) or supply evidence. Never close on ❌.
 
+#### Output style — prefer bullet points
+
+Write every produced artifact (the ADR, the Spec, the Plan, the
+architecture/ux docs) and the chat close summary for fast scanning, not
+for prose reading:
+
+- **Lead with bullets, not paragraphs.** A reader should grasp each section
+  by skimming the bullets. Reserve prose for the one or two places that
+  genuinely need a narrative (e.g. an ADR `Context` that explains the forces).
+- **One claim per bullet.** Break a dense multi-clause sentence into separate
+  bullets rather than stacking clauses with commas and semicolons.
+- **Bold the lead phrase** of a bullet when it names the thing the bullet is
+  about (`- **Write order:** Postgres commit first, then Redis publish.`),
+  so the eye lands on the key term.
+- **Keep ADR `Decision` and `Consequences` as bullet lists**, not flowing
+  paragraphs. `Alternatives considered` is already one-bullet-per-option —
+  keep it that way.
+- Tables stay tables (Decision Summary, Dependency Ledger). Don't convert a
+  table to bullets or vice versa.
+
 When both conditions are met, output:
 
 ```
@@ -429,7 +487,7 @@ When both conditions are met, output:
 All design branches resolved. All dependency rows verified or explicitly accepted as risk.
 ```
 
-Then **save both to disk** — this is mandatory:
+Then **save all three to disk** — this is mandatory:
 
 ```bash
 cd /Users/macbook/devloop
@@ -439,7 +497,22 @@ DESIGN_DIR=".orchestrator/designs/{designId}/design"
 mkdir -p "$DESIGN_DIR"
 # Write decisions.md with the full Decision Summary table
 # Write dependencies.md with the full Dependency Ledger
+# Write the ADR (see below) — grill-me is what produces the ADR
 ```
+
+**Produce the ADR.** grill-me is the source of the change's Architecture Decision Record. Derive it directly from what you just resolved:
+
+- **Decision** = the resolved choice (from the Decision Summary).
+- **Alternatives** = the options weighed and why each was rejected (from the decision tree's branches).
+- **Consequences** = the positive outcomes plus the `ACCEPTED-RISK` rows (from the Dependency Ledger).
+- **Status** = `Accepted` (or `Proposed` if not yet ratified).
+
+Write it to the change's ADR location per the `sdd` skill, scoped and grouped by initiative:
+
+- **Lightweight** change → Local ADR in the service repo: `<repo>/.specs/<initiative>/adr/NNNN-<slug>.md`.
+- **Cross-Service** change → Global ADR in `tosspaper-specs/adr/<initiative>/NNNN-<slug>.md`.
+
+Use the ADR template from `tosspaper-specs` (Status, Context, Decision, Consequences, Alternatives).
 
 `decisions.md` and `dependencies.md` together become the authoritative record
 for downstream agents. The architect reads both before designing — decisions
