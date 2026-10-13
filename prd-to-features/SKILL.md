@@ -1,6 +1,6 @@
 ---
 name: prd-to-features
-description: Break a PRD into a structured engineering deliverable — per-Story markdown specs at .specs/features/NN_slug.md inside each affected repo, plus a matching Jira Epic with Stories and Tasks. Reads the PRD from Confluence, loads prior grill-me artifacts (decisions.md, dependencies.md), audits affected repos for impact, asks the user via AskUserQuestion for anything not yet decided, and applies grill-me's discipline (options + recommendation, refuse-on-fog) to surface and resolve new design gaps before writing any Story file. Use when the user says "break down a PRD", "create features from this design", "ticket this PRD", "decompose this design doc", "spec out the engineering work for", "make Jira tickets from", "create the engineering breakdown for", or shares a Confluence PRD link and asks for engineering scope. Refuses to start if the PRD lacks a Design ID line or grill-me artifacts are missing — invoke grill-me first.
+description: Break a PRD into a structured engineering deliverable — per-Story markdown specs at .specs/features/NN_slug.md inside each affected repo, plus a matching Jira Epic with Stories and Tasks. Reads the PRD from Confluence, loads prior grill-me artifacts (decisions.md, dependencies.md), audits affected repos for impact, asks the user via AskUserQuestion for anything not yet decided, and applies grill-me's discipline (options + recommendation, refuse-on-fog) to surface and resolve new design gaps before writing any Story file. Use when the user says "break down a PRD", "create features from this design", "ticket this PRD", "decompose this design doc", "spec out the engineering work for", "make Jira tickets from", "create the engineering breakdown for", or shares a Confluence PRD link and asks for engineering scope. Refuses to start if the initiative's grill-me artifacts are missing — invoke grill-me first.
 allowed-tools:
   - Read
   - Write
@@ -72,10 +72,10 @@ This skill resolves all four by:
 1. **The input identifies a PRD.** A Confluence page link, page ID, tiny
    link ID, file path to a markdown PRD, or pasted PRD text. If unclear,
    ask via `AskUserQuestion`.
-2. **The PRD body contains a `Design ID:` line in its first 15 lines.** This
-   is the link to the prior grill-me session. If absent, the PRD has not
-   been grilled — STOP and tell the user to invoke the **grill-me** skill on
-   the PRD first, then return.
+2. **The PRD names its initiative** (the `.specs/<initiative>/` folder grill-me
+   wrote). If it does not, ask via `AskUserQuestion`. If there is no such
+   folder, the PRD has not been grilled: STOP and tell the user to invoke the
+   **grill-me** skill on the PRD first, then return.
 3. **Both `decisions.md` and `dependencies.md` exist** at
    `<repo>/.specs/<initiative>/`, where grill-me saves them. If either is missing, STOP
    and tell the user the same thing.
@@ -88,15 +88,15 @@ input clearly and stop.
 
 ### Step 1 — Confirm inputs (AskUserQuestion)
 
-Read the PRD body via Confluence (or the file path / pasted text). Extract
-the Design ID. Read `decisions.md` and `dependencies.md`. From `decisions.md`
+Read the PRD body via Confluence (or the file path / pasted text). Resolve
+`<repo>/.specs/<initiative>/` and read `decisions.md` and `dependencies.md` there. From `decisions.md`
 plus the dependencies ledger, identify which code repos are likely affected
 (repos are usually named in the resolution column or the related-files
 lines).
 
 Then use a single `AskUserQuestion` call to confirm:
 
-- **PRD title and Design ID** — one-line confirmation.
+- **PRD title and initiative**: one-line confirmation.
 - **Affected repos** — multi-select if multiple plausible repos surfaced.
 - **Branch/ref to read against per repo** — usually `dev` or a feature
   branch, not `main`. Active feature work typically lives off `main`. A
@@ -379,7 +379,7 @@ header:
    directory doesn't exist, create it.
 2. **Create the Jira Epic.** Use the auto-detected project (Step 1). Title
    = the Epic title agreed in Step 5. Description = a short summary of the
-   PRD plus the Confluence link plus the Design ID.
+   PRD plus the Confluence link plus the initiative.
 3. **For each Story, in display order:**
    a. Write the Story file to `<repo>/.specs/features/NN_slug.md` (template
    below). Leave the `Jira:` line as `TBD` initially.
@@ -607,7 +607,7 @@ If the config file doesn't exist on first run, create it with `{}`.
 Inputs:
 
 - PRD: [PRD] Vendor Portal (Confluence page 13828097)
-- Design ID: a92ab5b2-0a78-429e-b80f-ba62930b5a76
+- Initiative: vendor-portal
 - decisions.md, dependencies.md from the 2026-04-25 grill-me session
 
 Affected repos (auto-detected from decisions.md + dependencies row sources):
