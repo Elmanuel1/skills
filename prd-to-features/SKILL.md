@@ -77,7 +77,7 @@ This skill resolves all four by:
    been grilled — STOP and tell the user to invoke the **grill-me** skill on
    the PRD first, then return.
 3. **Both `decisions.md` and `dependencies.md` exist** at
-   `.orchestrator/designs/{design-id}/design/`. If either is missing, STOP
+   `<repo>/.specs/<initiative>/`, where grill-me saves them. If either is missing, STOP
    and tell the user the same thing.
 
 These preconditions are not optional. Breakdown without resolved decisions
